@@ -139,6 +139,11 @@ plateformes, exécute un test de démarrage, publie les archives en artefacts et
 git tag v1.0.0 && git push origin v1.0.0
 ```
 
+> **GitHub Actions doit être activé sur le dépôt.** S'il est désactivé, l'onglet
+> *Actions* reste vide et aucune archive n'est produite : *Settings → Actions →
+> General → Allow all actions*, puis `gh workflow run build.yml`. À défaut, le
+> build local sous Windows (`python -m delivra.build --zip`) reste la référence.
+
 > Le binaire Windows doit être produit sur Windows (ou via la CI) : PyInstaller ne
 > réalise pas de compilation croisée.
 
@@ -290,7 +295,7 @@ curl -X POST http://127.0.0.1:8760/api/generate \
 
 ## Tests
 
-### Tests fonctionnels (34)
+### Tests fonctionnels (35)
 
 ```bash
 python -m unittest discover -s tests -v
