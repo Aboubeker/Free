@@ -10,6 +10,14 @@ on:
   workflow_dispatch:
   push:
     tags: ["v*"]
+    branches: ["main", "arena/**"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    - cron: "0 4 1 * *"   # reconstruction mensuelle (fraîcheur des dépendances)
+
+permissions:
+  contents: write
 
 jobs:
   build:
