@@ -1,0 +1,23 @@
+# artefacts de build
+build/
+dist/
+*.spec.bak
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# données locales (documents, exports, médias)
+data/
+delivra/exports/
+*.log
+.DS_Store
+Thumbs.db
+
+# exports de test
+*.pdf
+*.docx
+*.pptx
+*.zip
+!packaging/*.zip
