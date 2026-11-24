@@ -96,6 +96,23 @@ class TestEngine(unittest.TestCase):
         self.assertIn("architecture", types)
         self.assertIn("table", types)
 
+    def test_content_is_contextual_and_deterministic(self):
+        from delivra.ai.engine import contextual_kpis
+        from delivra.ai.engine import PLAYBOOKS
+        bank = {"title": "T", "client": "Banque Atlas", "playbook": "data", "industry": "Services financiers"}
+        kpis_bank = contextual_kpis(bank, PLAYBOOKS["data"])
+        self.assertTrue(any("conformité" in label.lower() for label, _ in kpis_bank))
+        # deux appels avec le même brief → mêmes valeurs
+        self.assertEqual(kpis_bank, contextual_kpis(dict(bank), PLAYBOOKS["data"]))
+        # un autre secteur produit d'autres indicateurs
+        health = {"title": "T", "client": "CHU", "playbook": "data", "industry": "Santé"}
+        self.assertNotEqual(kpis_bank, contextual_kpis(health, PLAYBOOKS["data"]))
+
+    def test_client_specific_risk_is_mentioned(self):
+        doc = generate({**BRIEF, "client": "Groupe Horizon"})
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertIn("Groupe Horizon", blob)
+
     def test_generate_all_playbooks(self):
         cases = {
             "cloud": "migration azure kubernetes terraform",

@@ -380,6 +380,78 @@ def build_provider(settings: Optional[Dict[str, Any]] = None) -> LLMProvider:
 
 
 # --------------------------------------------------------------------------- #
+#  Contextualisation déterministe                                              #
+# --------------------------------------------------------------------------- #
+def _seed_for(brief: Dict[str, Any]) -> random.Random:
+    """Graine stable : deux générations du même brief donnent le même document."""
+    key = "|".join(str(brief.get(k) or "") for k in
+                   ("client", "project", "title", "industry", "context", "playbook"))
+    return random.Random(hash(key) & 0xFFFFFFFF)
+
+
+def contextual_kpis(brief: Dict[str, Any], pb: Dict[str, Any]) -> List[tuple]:
+    """Adapte les indicateurs au contexte : périmètre, secteur, équipe."""
+    rnd = _seed_for(brief)
+    base = list(brief.get("kpis") or pb["benefits"])[:4]
+    while len(base) < 4:
+        base.append(pb["benefits"][len(base) % len(pb["benefits"])])
+
+    industry = (brief.get("industry") or "").lower()
+    if any(k in industry for k in ("financ", "banque", "assur")):
+        scen = [("Contrôles de conformité automatisés", f"{rnd.randint(12, 42)}"),
+                ("Opérations tracées", f"{rnd.randint(96, 99)} %")]
+    elif any(k in industry for k in ("sant", "médic", "medic")):
+        scen = [("Échanges HDS sécurisés", f"{rnd.randint(8, 24)}"),
+                ("Dossiers rapprochés", f"{rnd.randint(120, 480)} k")]
+    elif any(k in industry for k in ("industr", "énergie", "logist")):
+        scen = [("Sites raccordés", f"{rnd.randint(3, 18)}"),
+                ("Arrêts de production évités", f"{rnd.randint(4, 22)}")]
+    elif any(k in industry for k in ("public", "collectiv", "état", "etat")):
+        scen = [("Agents formés", f"{rnd.randint(60, 320)}"),
+                ("Délais de traitement", f"−{rnd.randint(18, 46)} %")]
+    else:
+        scen = [("Utilisateurs actifs", f"{rnd.randint(80, 640)}"),
+                ("Ressaisies supprimées", f"−{rnd.randint(30, 70)} %")]
+
+    contextual_map = {
+        "Sources de données unifiées": f"{rnd.randint(8, 24)}",
+        "Temps de production des reportings": f"−{rnd.randint(48, 84)} %",
+        "Utilisateurs métier équipés": f"{rnd.randint(60, 480)}",
+        "Taux de complétude des données": f"{rnd.randint(94, 99)},{rnd.randint(0, 9)} %",
+        "Interfaces industrialisées": f"{rnd.randint(6, 40)}",
+        "Réduction des développements ad hoc": f"−{rnd.randint(25, 60)} %",
+        "Disponibilité des interfaces": f"99,{rnd.randint(5, 99)} %",
+        "Temps de chargement perçu": f"< {rnd.uniform(0.8, 2.4):.1f} s",
+        "Taux de conversion": f"+{rnd.randint(8, 38)} %",
+        "Utilisateurs formés": f"{rnd.randint(80, 620)}",
+        "Processus standardisés": f"{rnd.randint(20, 70)}",
+        "Délai de détection d'un incident": f"< {rnd.randint(5, 30)} min",
+        "Comptes à privilèges réduits": f"−{rnd.randint(40, 75)} %",
+    }
+    out: List[tuple] = [(label, contextual_map.get(label, value)) for label, value in base]
+    if not brief.get("kpis"):
+        out[-2], out[-1] = scen[0], scen[1]
+    return out[:4]
+
+
+def _contextual_risks(brief: Dict[str, Any], pb: Dict[str, Any]) -> List[tuple]:
+    """Ajoute un risque propre au client (experts, données, charge de recette)."""
+    rnd = _seed_for(brief)
+    risks = list(pb["risks"])
+    client = brief.get("client") or "le client"
+    extra = [
+        (f"Indisponibilité des experts métier de {client}", "Élevée",
+         "Planning des ateliers arrêté avec la direction et suppléants désignés"),
+        (f"Qualité insuffisante des données de {client}", "Moyenne",
+         "Audit de qualité en phase de cadrage et contrôles automatisés"),
+        ("Sous-estimation de la charge de recette", "Moyenne",
+         f"Provision de {rnd.randint(8, 20)} % de la charge de test"),
+    ]
+    risks.append(extra[rnd.randrange(len(extra))])
+    return risks[:4]
+
+
+# --------------------------------------------------------------------------- #
 #  Composition du livrable                                                    #
 # --------------------------------------------------------------------------- #
 def _titlecase_client(client: str) -> str:
@@ -531,7 +603,7 @@ def compose_section(key: str, brief: Dict[str, Any], pb: Dict[str, Any], idx: in
         B.append({"type": "heading", "text": "Indicateurs de succès", "level": 2})
         B.append({"type": "kpi", "items": [
             {"label": b, "value": v, "hint": "cible mesurée"}
-            for b, v in (brief.get("kpis") or pb["benefits"])[:4]
+            for b, v in contextual_kpis(brief, pb)
         ]})
         B.append({"type": "callout", "tone": "success", "title": "Critère d'acceptation global",
                   "text": "La livraison est réputée conforme lorsque l'ensemble des objectifs "
@@ -772,7 +844,7 @@ def compose_section(key: str, brief: Dict[str, Any], pb: Dict[str, Any], idx: in
         B.append({"type": "paragraph", "text":
                   "Les risques sont évalués selon leur probabilité et leur impact. Un plan de "
                   "mitigation est associé à chacun et suivi en comité de projet."})
-        risk_rows = [[r[0], r[1], r[2]] for r in (brief.get("risks") or pb["risks"])]
+        risk_rows = [[r[0], r[1], r[2]] for r in (brief.get("risks") or _contextual_risks(brief, pb))]
         B.append({"type": "table", "caption": "Tableau — Registre des risques",
                   "columns": ["Risque", "Criticité", "Mesure de mitigation"], "rows": risk_rows})
         B.append({"type": "heading", "text": "Dispositif de suivi", "level": 2})
@@ -791,7 +863,7 @@ def compose_section(key: str, brief: Dict[str, Any], pb: Dict[str, Any], idx: in
                   "cadrage. Le relevé ci-dessous correspond aux valeurs constatées en fin de "
                   "déploiement."})
         B.append({"type": "kpi", "items": [
-            {"label": lbl, "value": val, "hint": "constaté"} for lbl, val in pb["benefits"][:4]]})
+            {"label": lbl, "value": val, "hint": "constaté"} for lbl, val in contextual_kpis(brief, pb)]})
         B.append({"type": "heading", "text": "Témoignages utilisateurs", "level": 2})
         B.append({"type": "quote",
                   "text": "L'outil nous fait gagner un temps considérable : ce qui prenait "

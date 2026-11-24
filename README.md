@@ -22,6 +22,8 @@ Interface web locale + application de bureau autonome (`.exe` sous Windows).
 - [Architecture technique](#architecture-technique)
 - [API REST](#api-rest)
 - [Tests](#tests)
+- [Dépannage](#dépannage)
+- [Limites connues](#limites-connues)
 - [Structure du projet](#structure-du-projet)
 - [Licence](#licence)
 
@@ -288,14 +290,54 @@ curl -X POST http://127.0.0.1:8760/api/generate \
 
 ## Tests
 
+### Tests fonctionnels (34)
+
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-32 tests couvrent : normalisation et sécurité des entrées, détection du type de projet,
-génération sur les 6 référentiels, rendu PDF (toutes palettes / typographies / formats /
-variantes de couverture), pagination du sommaire, exports DOCX/PPTX/Markdown, stockage,
-médias (data-URI, validation), et l'ensemble des routes HTTP.
+Ils couvrent : normalisation et sécurité des entrées, détection du type de projet,
+génération sur les 6 référentiels, contextualisation des indicateurs (par secteur,
+reproductible), rendu PDF (toutes palettes / typographies / formats / variantes de
+couverture / pagination du sommaire), exports DOCX/PPTX/Markdown, stockage, médias
+(data-URI, validation) et l'ensemble des routes HTTP.
+
+### Tests d'interface (happy-dom)
+
+Ils exécutent réellement les modules ES de l'interface contre un serveur lancé :
+rendu de l'assistant, passage brief → structure, éditeur et ses 5 onglets, aperçu A4,
+ajout de blocs, vues projets / médias / paramètres, et contrôle d'absence d'erreur JS.
+
+```bash
+python run.py --port 8080 --no-browser &      # serveur
+cd tests/ui && npm install happy-dom
+node run.mjs && node tabs.mjs
+```
+
+Voir [`tests/ui/README.md`](tests/ui/README.md).
+
+## Dépannage
+
+| Symptôme | Cause probable | Solution |
+|---|---|---|
+| `Le serveur Delivra ne répond pas` | port occupé / serveur arrêté | relancer `python run.py --port 8761` |
+| Aperçu vide dans l'éditeur | `pypdfium2` absent | `pip install pypdfium2` |
+| Aperçu qui échoue sur un document lourd | rendu partiel | l'erreur est affichée, le document reste éditable et exportable |
+| Fenêtre native absente sous Windows | WebView2 manquant | Delivra bascule automatiquement sur le navigateur |
+| Police introuvable dans le PDF | fichier `.ttf` renommé | conserver le format `Famille-Poids.ttf` (ex. `Manrope-700.ttf`) |
+| `libpython3.11.so not found` au build | build PyInstaller sans bibliothèque partagée | compiler sous Windows (ou via la CI) |
+| Export Word sans sommaire | Word n'évalue pas les champs à l'ouverture | clic droit sur le sommaire → « Mettre à jour les champs » |
+
+## Limites connues
+
+- La génération du contenu utilise un **moteur de règles** : le texte est structuré,
+  précis et contextualisé, mais ne remplace pas une relecture métier. Brancher un LLM
+  améliore la formulation.
+- Les chiffres proposés à défaut de saisie sont **des cibles plausibles**, pas des
+  mesures : remplacez-les par vos valeurs réelles avant diffusion.
+- Le binaire doit être produit sur son système cible (pas de compilation croisée).
+- Le PPTX est une déclinaison synthétique du dossier (couverture, sections, KPI,
+  tableaux, schémas), non un jeu de slides rédigé sur mesure.
 
 ## Structure du projet
 
@@ -316,7 +358,7 @@ Delivra/
 │   ├── desktop.py            # point d'entrée de l'application empaquetée
 │   └── build.py              # script de construction PyInstaller
 ├── packaging/                # icônes et outils
-├── tests/                    # suite de tests
+├── tests/                    # tests fonctionnels (unittest) + interface (happy-dom)
 ├── tools/                    # polices, exemples, vérifications
 ├── delivra.spec              # configuration PyInstaller
 ├── .github/workflows/        # CI : builds Windows / Linux / macOS
