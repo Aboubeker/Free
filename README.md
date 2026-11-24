@@ -129,20 +129,41 @@ Résultat :
 - **Linux** : `dist/Delivra/Delivra`
 - **macOS** : `dist/Delivra/Delivra` (dossier `.app` possible avec py2app)
 
+### Télécharger un exécutable déjà compilé
+
+Les binaires officiels sont attachés à chaque release :
+
+> **[⬇ Delivra v1.0.0](https://github.com/Aboubeker/Free/releases/tag/v1.0.0)**
+
+| Plateforme | Fichier | Utilisation |
+|---|---|---|
+| Windows 10/11 x64 | `Delivra-windows-x64.zip` | décompresser, double-cliquer **Delivra.exe** |
+| Linux x64 | `Delivra-linux-x64.tar.gz` | `tar xzf … && ./Delivra/Delivra` |
+| macOS (Apple Silicon) | `Delivra-macos-arm64.zip` | décompresser, lancer `Delivra` |
+
+Aucune installation de Python n'est requise : l'exécutable embarque l'interpréteur,
+les polices et toute l'interface. Les données (projets, médias, exports) sont
+écrites dans un dossier utilisateur (`%APPDATA%\Delivra` sous Windows).
+
 ### Construction automatisée (GitHub Actions)
 
 Le workflow [`.github/workflows/build.yml`](.github/workflows/build.yml) compile les trois
-plateformes, exécute un test de démarrage, publie les archives en artefacts et les attache
-à une *release* lors d'un tag `v*`.
+plateformes, **vérifie que le binaire démarre réellement** (`/healthz` + `/api/bootstrap`),
+puis publie les archives en artefacts et les attache à une *release* lors d'un tag `v*`.
+Le workflow [`.github/workflows/test.yml`](.github/workflows/test.yml) exécute la suite
+de tests à chaque envoi.
 
 ```bash
 git tag v1.0.0 && git push origin v1.0.0
 ```
 
-> **GitHub Actions doit être activé sur le dépôt.** S'il est désactivé, l'onglet
-> *Actions* reste vide et aucune archive n'est produite : *Settings → Actions →
-> General → Allow all actions*, puis `gh workflow run build.yml`. À défaut, le
-> build local sous Windows (`python -m delivra.build --zip`) reste la référence.
+État vérifié le 24/11/2026 : build **Windows, Linux et macOS en succès**, release
+`v1.0.0` publiée avec les trois archives.
+
+> **GitHub Actions doit être activé sur le dépôt** (*Settings → Actions → General →
+> Allow all actions*). Si l'onglet *Actions* reste vide, aucun exécutable n'est
+> produit ; le build local sous Windows (`python -m delivra.build --zip`) reste alors
+> la référence.
 
 > Le binaire Windows doit être produit sur Windows (ou via la CI) : PyInstaller ne
 > réalise pas de compilation croisée.
