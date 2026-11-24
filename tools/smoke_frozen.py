@@ -40,7 +40,17 @@ def main() -> int:
         if proc.poll() is not None:
             print(f"Le processus s'est arrêté prématurément (code {proc.returncode}).",
                   file=sys.stderr)
-            break
+            # diagnostic immédiat : traceback complet plutôt qu'un simple échec
+            try:
+                out = proc.communicate(timeout=10)[0].decode(errors="ignore")
+                if out.strip():
+                    print(out[-4000:], file=sys.stderr)
+            except Exception:
+                pass
+            if proc.returncode == 0:
+                print("Sortie propre sans serveur : l'application s'est arrêtée d'elle-même.",
+                      file=sys.stderr)
+            return 1
         time.sleep(1)
         try:
             with urllib.request.urlopen(url, timeout=2) as resp:

@@ -17,6 +17,11 @@ import time
 import webbrowser
 from pathlib import Path
 
+if __package__ in (None, ""):
+    # exécution directe (« python delivra/desktop.py ») ou script PyInstaller :
+    # on rétablit l'import par chemin absolu du paquet
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 WINDOW_TITLE = "Delivra — agent de livrables"
 
 
@@ -35,7 +40,7 @@ def _free_port(preferred: int = 8760) -> int:
 
 
 def _start_server(port: int) -> threading.Thread:
-    from .server import create_app
+    from delivra.server import create_app
     app = create_app()
 
     def run() -> None:
