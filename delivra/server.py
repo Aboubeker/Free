@@ -329,6 +329,10 @@ def create_app() -> Flask:
         if body.get("id"):
             from . import storage
             return storage.load_project(body["id"])
+        if body.get("brief"):
+            # génération à la volée : pratique pour un appel API en une requête
+            from .ai.engine import generate as _generate
+            return normalize(_generate(body["brief"]))
         return None
 
     @app.post("/api/preview")

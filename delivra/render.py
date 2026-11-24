@@ -21,6 +21,24 @@ MARGIN = {"left": 56.0, "right": 50.0, "top": 58.0, "bottom": 52.0}
 CONTENT_W = None  # calculé par Document via style
 
 
+def _rgb_tuple(value: str):
+    from .theme import hex_to_rgb
+    r, g, b = hex_to_rgb(value)
+    return (r / 255, g / 255, b / 255)
+
+
+def _is_light_enough(img) -> bool:
+    """Vrai si le logo est globalement clair (lisible sur fond sombre)."""
+    try:
+        from PIL import ImageStat
+        rgb = img.convert("RGB")
+        small = rgb.resize((32, 32))
+        mean = ImageStat.Stat(small).mean
+        return (0.2126 * mean[0] + 0.7152 * mean[1] + 0.0722 * mean[2]) > 150
+    except Exception:
+        return False
+
+
 class Document:
     def __init__(self, doc: Dict[str, Any], *, watermark: bool = True):
         self.doc = doc
@@ -153,23 +171,57 @@ class Document:
         y = H - 92
 
         # En-tête : logo + badge de confidentialité
+        logo_drawn = False
         if logo:
             img = _open_image(logo)
             if img:
                 iw, ih = img.size
                 scale = min(min(170.0, self.content_w * 0.42) / iw, 48.0 / ih)
-                self.c.drawImage(__import__("reportlab.lib.utils", fromlist=["ImageReader"]).ImageReader(img),
-                                 x, y - 8, iw * scale, ih * scale, mask="auto", preserveAspectRatio=True)
-                y -= 70
-            else:
-                y -= 6
-        else:
+                dw, dh = iw * scale, ih * scale
+                if variant in ("deep", "gradient"):
+                    # fond sombre : on dépose le logo sur une pastille claire
+                    # arrondie (ou directe s'il est déjà opaque et lisible)
+                    try:
+                        from PIL import Image
+                        rgba = img.convert("RGBA")
+                        alpha_ok = (rgba.getchannel("A").getextrema()[0] > 200
+                                    and _is_light_enough(rgba))
+                        if alpha_ok:
+                            self.c.drawImage(
+                                __import__("reportlab.lib.utils", fromlist=["ImageReader"]).ImageReader(img),
+                                x, y - 8, dw, dh, mask="auto")
+                            y -= dh + 18
+                        else:
+                            pad = 8
+                            box = (int(dw) + pad * 2, int(dh) + pad * 2)
+                            bg = Image.new("RGBA", box, (255, 255, 255, 255))
+                            bg.alpha_composite(rgba.resize((int(dw), int(dh)), Image.LANCZOS), (pad, pad))
+                            # coins arrondis
+                            mask = Image.new("L", box, 0)
+                            from PIL import ImageDraw as _ID
+                            _ID.Draw(mask).rounded_rectangle([0, 0, box[0] - 1, box[1] - 1], radius=8, fill=255)
+                            flat = Image.new("RGB", box, tuple(int(x * 255) for x in _rgb_tuple(s.dark)))
+                            flat.paste(bg.convert("RGB"), (0, 0), mask)
+                            self.c.drawImage(
+                                __import__("reportlab.lib.utils", fromlist=["ImageReader"]).ImageReader(flat),
+                                x, y - pad - dh, dw + pad * 2, dh + pad * 2, mask="auto")
+                            y -= dh + pad * 2 + 18
+                        logo_drawn = True
+                    except Exception:
+                        pass
+                if not logo_drawn:
+                    self.c.drawImage(
+                        __import__("reportlab.lib.utils", fromlist=["ImageReader"]).ImageReader(img),
+                        x, y - 8, dw, dh, mask="auto", preserveAspectRatio=True)
+                    y -= dh + 18
+                    logo_drawn = True
+        if not logo_drawn:
             p.heading(15, 800)
             p.fill(ink)
             p.c.drawString(x, y, (m.get("author") or "DELIVRA").upper()[:28])
             y -= 26
 
-        if m.get("author") and logo:
+        if m.get("author") and logo_drawn:
             p.body(8.6, 600)
             p.fill(mix(ink, s.dark, 0.5))
             p.c.drawString(x, y + 6, str(m["author"])[:60])

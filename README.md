@@ -266,8 +266,8 @@ Flask (delivra/server.py) ──► Moteur IA (delivra/ai/engine.py)
 | GET/POST | `/api/projects` | Liste / crée un livrable |
 | GET/PUT/DELETE | `/api/projects/<id>` | Lire / enregistrer / supprimer |
 | POST | `/api/projects/<id>/duplicate` | Dupliquer |
-| POST | `/api/preview` | Rendu image des pages (`pages`, `scale`) |
-| POST | `/api/export/{pdf\|docx\|pptx\|md}` | Export binaire |
+| POST | `/api/preview` | Rendu image des pages (`document` ou `id`, `pages`, `scale`) |
+| POST | `/api/export/{pdf\|docx\|pptx\|md}` | Export binaire (`document`, `id` ou `brief`) |
 | POST | `/api/export/preview-bundle` | ZIP multi-formats |
 | POST | `/api/upload` | Import d'image (logo, capture) |
 | GET/DELETE | `/api/assets[/<name>]` | Médiathèque |

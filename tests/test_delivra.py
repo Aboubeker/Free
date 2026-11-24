@@ -252,6 +252,38 @@ class TestStorage(unittest.TestCase):
         self.assertTrue(Path(path).exists())
 
 
+    def test_transparent_logo_is_drawn_on_cover(self):
+        """Un logo transparent doit apparaître sur la couverture (pas d'aplat noir)."""
+        from io import BytesIO
+        from PIL import Image, ImageDraw
+        from delivra import storage
+        from delivra.pdfkit import _open_image
+        from delivra.render import render_pdf
+
+        img = Image.new("RGBA", (600, 160), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        draw.ellipse([10, 10, 150, 150], fill=(11, 95, 255, 255))
+        buf = BytesIO()
+        img.save(buf, "PNG")
+        meta = storage.save_asset("logo-test.png", buf.getvalue())
+        self.assertTrue(meta["asset"].startswith("assets/"))
+
+        # la référence (chemin relatif « assets/… ») est résolue et l'alpha conservé
+        opened = _open_image(meta["asset"])
+        self.assertIsNotNone(opened)
+        self.assertEqual(opened.mode, "RGBA")
+        self.assertLess(opened.getchannel("A").getextrema()[0], 255)
+
+        doc = generate(dict(BRIEF, client="ACME Industries"))
+        doc["brand"]["logo"] = meta["asset"]
+        pdf = render_pdf(doc)
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertGreater(len(pdf), 20000)
+        # sans logo, la couverture porte le nom de l'auteur
+        plain = render_pdf(generate(BRIEF))
+        self.assertNotEqual(len(pdf), len(plain))
+
+
 class TestServer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

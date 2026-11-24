@@ -247,6 +247,18 @@ class Painter:
         return x, y + (max_h - ih * scale) / 2, iw * scale, ih * scale
 
 
+def _flatten(img):
+    """Conserve la transparence : RGB si opaque, RGBA sinon (jamais d'aplat noir)."""
+    if img.mode in ("RGBA", "LA", "P"):
+        img = img.convert("RGBA")
+        if img.getchannel("A").getextrema()[0] == 255:
+            return img.convert("RGB")
+        return img
+    if img.mode != "RGB":
+        return img.convert("RGB")
+    return img
+
+
 def _open_image(source: Any):
     from PIL import Image
     if source is None:
@@ -258,7 +270,18 @@ def _open_image(source: Any):
     if isinstance(source, (str, os.PathLike)):
         p = Path(source)
         if p.exists():
-            return Image.open(p).convert("RGB")
+            try:
+                return _flatten(Image.open(p))
+            except Exception:
+                pass
+        # référence d'asset (« assets/xxx.png », id, data-URI) → résolution
+        try:
+            from .storage import resolve_asset
+            resolved = resolve_asset(str(source))
+            if resolved and Path(resolved).exists():
+                return _flatten(Image.open(resolved))
+        except Exception:
+            pass
     return None
 
 

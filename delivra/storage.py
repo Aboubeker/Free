@@ -220,12 +220,21 @@ def resolve_asset(reference: str) -> Optional[Path]:
     p = Path(reference)
     if p.is_absolute() and p.exists():
         return _rasterize_svg(p)
-    candidate = data_dir() / reference
-    if candidate.exists():
-        return _rasterize_svg(candidate)
-    alt = assets_dir() / Path(reference).name
-    if alt.exists():
-        return _rasterize_svg(alt)
+    # références acceptées : "assets/x.png", "ast-xxx.png", "x.png", sous-dossier…
+    candidates = [
+        data_dir() / reference,
+        data_dir() / "assets" / Path(reference).name,
+        assets_dir() / Path(reference).name,
+    ]
+    # si la référence contient déjà le préfixe "assets/", on évite le doublon
+    name = Path(reference).name
+    for cand in candidates:
+        if cand.exists():
+            return _rasterize_svg(cand)
+    for ext in (".png", ".jpg", ".jpeg", ".webp", ".svg"):
+        stem = assets_dir() / (Path(name).stem + ext)
+        if stem.exists():
+            return _rasterize_svg(stem)
     return None
 
 
