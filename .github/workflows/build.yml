@@ -56,28 +56,7 @@ jobs:
         run: pyinstaller delivra.spec --noconfirm --clean
 
       - name: Vérifier le démarrage (smoke test)
-        shell: bash
-        run: |
-          python - <<'PY'
-          import subprocess, sys, time, urllib.request, os
-          exe = "dist/Delivra/Delivra.exe" if os.name == "nt" else "dist/Delivra/Delivra"
-          env = dict(os.environ, DELIVRA_BROWSER_ONLY="1", DELIVRA_PORT="8791", DELIVRA_HOME="smoke-data")
-          proc = subprocess.Popen([exe], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-          ok = False
-          for _ in range(60):
-              time.sleep(1)
-              try:
-                  with urllib.request.urlopen("http://127.0.0.1:8791/healthz", timeout=2) as r:
-                      ok = r.status == 200
-                      break
-              except Exception:
-                  pass
-          proc.terminate()
-          if not ok:
-              print(proc.stdout.read().decode(errors="ignore")[-3000:])
-              sys.exit("L'exécutable n'a pas démarré correctement")
-          print("Démarrage vérifié")
-          PY
+        run: python tools/smoke_frozen.py
 
       - name: Archiver (Windows)
         if: runner.os == 'Windows'

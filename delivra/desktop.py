@@ -73,15 +73,19 @@ def main() -> int:
     if not ready:
         print("Le serveur local n'a pas démarré.", file=sys.stderr)
 
+    no_browser = os.environ.get("DELIVRA_NO_BROWSER") == "1"
+
     if os.environ.get("DELIVRA_BROWSER_ONLY") == "1":
-        webbrowser.open(url)
+        if not no_browser:
+            _open_browser(url)
         return _keep_alive()
 
     try:
         import webview  # type: ignore
     except Exception:
         print(f"Delivra est disponible sur {url}")
-        webbrowser.open(url)
+        if not no_browser:
+            _open_browser(url)
         return _keep_alive()
 
     try:
@@ -93,8 +97,17 @@ def main() -> int:
         return 0
     except Exception as exc:  # WebView2 absent, session graphique indisponible…
         print(f"Fenêtre native indisponible ({exc}) — ouverture du navigateur.")
-        webbrowser.open(url)
+        if not no_browser:
+            _open_browser(url)
         return _keep_alive()
+
+
+def _open_browser(url: str) -> None:
+    """Ouvre le navigateur sans jamais faire échouer le démarrage (CI sans écran)."""
+    try:
+        webbrowser.open(url)
+    except Exception as exc:  # aucun navigateur disponible
+        print(f"Navigateur indisponible ({exc}) — ouvrez {url}", file=sys.stderr)
 
 
 def _keep_alive() -> int:
